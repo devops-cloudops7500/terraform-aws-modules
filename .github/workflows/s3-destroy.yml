@@ -150,7 +150,7 @@ jobs:
           minimum-approvals: 1
           issue-title: "Approve destroy for ${{ github.event.inputs.environment }}"
           issue-body: "Approve or deny destruction of the S3 stack for environment `${{ github.event.inputs.environment }}` in workspace `terraform-aws-deployment`."
-          exclude-workflow-initiator-as-approver: true
+          exclude-workflow-initiator-as-approver: false
 
   apply-destroy:
     runs-on: ubuntu-latest
