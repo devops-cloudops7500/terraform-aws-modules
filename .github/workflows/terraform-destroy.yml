@@ -1,0 +1,74 @@
+name: terraform-destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - qa
+          - uat
+          - staging
+          - prod
+      service:
+        description: "Service stack"
+        required: true
+        type: choice
+        options:
+          - network
+          - compute
+          - storage
+          - security
+          - data
+          - messaging
+      confirm_destroy:
+        description: "Type DESTROY to continue"
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  destroy:
+    if: ${{ github.event.inputs.confirm_destroy == 'DESTROY' }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment == 'prod' && 'production' || github.event.inputs.environment }}
+    defaults:
+      run:
+        working-directory: services/${{ github.event.inputs.service }}
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      TF_WORKSPACE: prj-${{ github.event.inputs.environment }}-${{ github.event.inputs.service }}
+      TF_VAR_hcp_organization: ${{ vars.HCP_ORGANIZATION }}
+      TF_VAR_hcp_workspace_name: prj-${{ github.event.inputs.environment }}-${{ github.event.inputs.service }}
+      TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+      TF_VAR_environment: ${{ github.event.inputs.environment }}
+      TF_VAR_project_name: ${{ vars.PROJECT_NAME }}
+      TF_VAR_owner: ${{ vars.OWNER }}
+      TF_VAR_cost_center: ${{ vars.COST_CENTER }}
+      TF_VAR_data_classification: ${{ vars.DATA_CLASSIFICATION }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Terraform Init
+        run: terraform init -backend-config="organization=${{ vars.HCP_ORGANIZATION }}" -backend-config="workspaces.name=${{ env.TF_WORKSPACE }}"
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
