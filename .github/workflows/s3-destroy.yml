@@ -1,0 +1,160 @@
+name: s3-destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - test
+          - prod
+      tfvars_repository:
+        description: "Repository containing environment inputs (owner/repo)"
+        required: true
+        default: "nishu-kumar7500/project-1"
+        type: string
+      tfvars_ref:
+        description: "Branch or tag in inputs repository"
+        required: true
+        default: "main"
+        type: string
+      tfvars_root:
+        description: "Root folder in inputs repository"
+        required: true
+        default: "."
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  plan-destroy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment == 'prod' && 'production' || github.event.inputs.environment }}
+    defaults:
+      run:
+        working-directory: services/s3
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      TF_WORKSPACE: terraform-aws-deployment
+      TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+      TF_VAR_environment: ${{ github.event.inputs.environment }}
+      TF_VAR_project_name: ${{ vars.PROJECT_NAME }}
+      TF_VAR_owner: ${{ vars.OWNER }}
+      TF_VAR_cost_center: ${{ vars.COST_CENTER }}
+      TF_VAR_data_classification: ${{ vars.DATA_CLASSIFICATION }}
+    steps:
+      - name: Checkout Terraform repository
+        uses: actions/checkout@v4
+
+      - name: Checkout inputs repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.inputs.tfvars_repository }}
+          ref: ${{ github.event.inputs.tfvars_ref }}
+          token: ${{ github.token }}
+          path: tfvars-inputs
+
+      - name: Verify inputs file
+        run: test -f ../../tfvars-inputs/${{ github.event.inputs.tfvars_root }}/${{ github.event.inputs.environment }}/terraform.tfvars
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Create cloud config
+        run: |
+          cat > cloud.auto.tf <<EOF
+          terraform {
+            cloud {
+              organization = "nishu7500"
+
+              workspaces {
+                name = "terraform-aws-deployment"
+              }
+            }
+          }
+          EOF
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Destroy Plan
+        run: terraform plan -destroy -var="force_destroy=true" -var-file=../../tfvars-inputs/${{ github.event.inputs.tfvars_root }}/${{ github.event.inputs.environment }}/terraform.tfvars -out=tfdestroyplan
+
+      - name: Upload Destroy Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfdestroyplan-s3-${{ github.event.inputs.environment }}
+          path: services/s3/tfdestroyplan
+
+  apply-destroy:
+    runs-on: ubuntu-latest
+    needs: [plan-destroy]
+    environment: ${{ github.event.inputs.environment == 'prod' && 'production' || github.event.inputs.environment }}
+    defaults:
+      run:
+        working-directory: services/s3
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      TF_WORKSPACE: terraform-aws-deployment
+      TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+      TF_VAR_environment: ${{ github.event.inputs.environment }}
+      TF_VAR_project_name: ${{ vars.PROJECT_NAME }}
+      TF_VAR_owner: ${{ vars.OWNER }}
+      TF_VAR_cost_center: ${{ vars.COST_CENTER }}
+      TF_VAR_data_classification: ${{ vars.DATA_CLASSIFICATION }}
+    steps:
+      - name: Checkout Terraform repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Create cloud config
+        run: |
+          cat > cloud.auto.tf <<EOF
+          terraform {
+            cloud {
+              organization = "nishu7500"
+
+              workspaces {
+                name = "terraform-aws-deployment"
+              }
+            }
+          }
+          EOF
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Download Destroy Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfdestroyplan-s3-${{ github.event.inputs.environment }}
+          path: services/s3
+
+      - name: Terraform Destroy Apply
+        run: terraform apply -auto-approve tfdestroyplan
