@@ -76,8 +76,18 @@ jobs:
       - name: Terraform Format Check
         run: terraform -chdir=../.. fmt -check -recursive modules services
 
+      - name: Create backend config
+        run: |
+          cat > backend.hcl <<EOF
+          organization = "${{ vars.HCP_ORGANIZATION }}"
+
+          workspaces {
+            name = "${{ env.TF_WORKSPACE }}"
+          }
+          EOF
+
       - name: Terraform Init
-        run: terraform init -backend-config="organization=${{ vars.HCP_ORGANIZATION }}" -backend-config="workspaces.name=${{ env.TF_WORKSPACE }}"
+        run: terraform init -backend-config=backend.hcl
 
       - name: Terraform Validate
         run: terraform validate
@@ -122,8 +132,18 @@ jobs:
         with:
           terraform_version: 1.9.8
 
+      - name: Create backend config
+        run: |
+          cat > backend.hcl <<EOF
+          organization = "${{ vars.HCP_ORGANIZATION }}"
+
+          workspaces {
+            name = "${{ env.TF_WORKSPACE }}"
+          }
+          EOF
+
       - name: Terraform Init
-        run: terraform init -backend-config="organization=${{ vars.HCP_ORGANIZATION }}" -backend-config="workspaces.name=${{ env.TF_WORKSPACE }}"
+        run: terraform init -backend-config=backend.hcl
 
       - name: Download Plan Artifact
         uses: actions/download-artifact@v4
