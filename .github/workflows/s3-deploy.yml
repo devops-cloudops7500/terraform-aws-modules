@@ -12,17 +12,17 @@ on:
           - test
           - prod
       tfvars_repository:
-        description: "Repository containing environment tfvars (owner/repo)"
+        description: "Repository containing environment inputs (owner/repo)"
         required: true
-        default: "your-org/project-a-infra"
+        default: "nishu-kumar7500/project-1"
         type: string
       tfvars_ref:
-        description: "Branch or tag in tfvars repository"
+        description: "Branch or tag in inputs repository"
         required: true
         default: "main"
         type: string
       tfvars_root:
-        description: "Root folder in tfvars repository"
+        description: "Root folder in inputs repository"
         required: true
         default: "."
         type: string
@@ -51,7 +51,7 @@ jobs:
       - name: Checkout Terraform repository
         uses: actions/checkout@v4
 
-      - name: Checkout tfvars repository
+      - name: Checkout inputs repository
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.inputs.tfvars_repository }}
@@ -59,7 +59,7 @@ jobs:
           token: ${{ secrets.INPUTS_REPO_TOKEN }}
           path: tfvars-inputs
 
-      - name: Verify tfvars file
+      - name: Verify inputs file
         run: test -f ../../tfvars-inputs/${{ github.event.inputs.tfvars_root }}/${{ github.event.inputs.environment }}/terraform.tfvars
 
       - name: Configure AWS credentials (OIDC)
