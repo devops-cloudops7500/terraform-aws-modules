@@ -56,7 +56,7 @@ jobs:
         with:
           repository: ${{ github.event.inputs.tfvars_repository }}
           ref: ${{ github.event.inputs.tfvars_ref }}
-          token: ${{ secrets.INPUTS_REPO_TOKEN }}
+          token: ${{ github.token }}
           path: tfvars-inputs
 
       - name: Verify inputs file
