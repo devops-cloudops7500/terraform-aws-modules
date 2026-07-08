@@ -26,10 +26,15 @@ on:
         required: true
         default: "."
         type: string
+      approvers:
+        description: "Comma-separated GitHub usernames allowed to approve destroy"
+        required: true
+        type: string
 
 permissions:
   id-token: write
   contents: read
+  issues: write
 
 jobs:
   plan-destroy:
@@ -102,11 +107,24 @@ jobs:
           name: tfdestroyplan-s3-${{ github.event.inputs.environment }}
           path: services/s3/tfdestroyplan
 
-  apply-destroy:
+  wait-for-approval:
     runs-on: ubuntu-latest
     needs: [plan-destroy]
-    environment:
-      name: ${{ github.event.inputs.environment }}-destroy-approval
+    steps:
+      - name: Manual approval before destroy
+        uses: trstringer/manual-approval@v1
+        timeout-minutes: 1440
+        with:
+          secret: ${{ github.token }}
+          approvers: ${{ github.event.inputs.approvers }}
+          minimum-approvals: 1
+          issue-title: "Approve destroy for ${{ github.event.inputs.environment }}"
+          issue-body: "Approve or deny destruction of the S3 stack for environment `${{ github.event.inputs.environment }}` in workspace `terraform-aws-deployment`."
+          exclude-workflow-initiator-as-approver: true
+
+  apply-destroy:
+    runs-on: ubuntu-latest
+    needs: [wait-for-approval]
     defaults:
       run:
         working-directory: services/s3

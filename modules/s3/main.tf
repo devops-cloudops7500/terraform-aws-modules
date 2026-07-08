@@ -61,11 +61,16 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "this" {
   }
 }
 
+data "aws_s3_bucket" "access_log_target" {
+  count  = var.enable_access_logging ? 1 : 0
+  bucket = var.access_log_bucket_name
+}
+
 resource "aws_s3_bucket_logging" "this" {
   count = var.enable_access_logging ? 1 : 0
 
   bucket        = aws_s3_bucket.this.id
-  target_bucket = var.access_log_bucket_name
+  target_bucket = data.aws_s3_bucket.access_log_target[0].bucket
   target_prefix = var.access_log_prefix
 }
 
