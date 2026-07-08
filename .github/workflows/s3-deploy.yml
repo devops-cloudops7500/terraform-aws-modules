@@ -3,6 +3,19 @@ name: s3-deploy
 on:
   workflow_dispatch:
     inputs:
+      service:
+        description: "Service stack to deploy"
+        required: true
+        default: "s3"
+        type: choice
+        options:
+          - s3
+          - vpc
+          - subnet
+          - security-group
+          - ec2
+          - alb
+          - public-ip
       environment:
         description: "Target environment"
         required: true
@@ -37,10 +50,11 @@ jobs:
     environment: ${{ github.event.inputs.environment == 'prod' && 'production' || github.event.inputs.environment }}
     defaults:
       run:
-        working-directory: services/s3
+        working-directory: services/${{ github.event.inputs.service }}
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-      TF_WORKSPACE: terraform-aws-deployment
+      TF_WORKSPACE: ${{ vars.PROJECT_NAME }}-${{ github.event.inputs.environment }}-${{ github.event.inputs.service }}
+      TFVARS_FILE: ../../tfvars-inputs/${{ github.event.inputs.tfvars_root }}/${{ github.event.inputs.environment }}/${{ github.event.inputs.service }}/terraform.tfvars
       TF_VAR_aws_region: ${{ vars.AWS_REGION }}
       TF_VAR_environment: ${{ github.event.inputs.environment }}
       TF_VAR_project_name: ${{ vars.PROJECT_NAME }}
@@ -60,7 +74,7 @@ jobs:
           path: tfvars-inputs
 
       - name: Verify inputs file
-        run: test -f ../../tfvars-inputs/${{ github.event.inputs.tfvars_root }}/${{ github.event.inputs.environment }}/terraform.tfvars
+        run: test -f "$TFVARS_FILE"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -81,10 +95,10 @@ jobs:
           cat > cloud.auto.tf <<EOF
           terraform {
             cloud {
-              organization = "nishu7500"
+              organization = "${{ vars.HCP_ORGANIZATION }}"
 
               workspaces {
-                name = "terraform-aws-deployment"
+                name = "${TF_WORKSPACE}"
               }
             }
           }
@@ -97,13 +111,13 @@ jobs:
         run: terraform validate
 
       - name: Terraform Plan
-        run: terraform plan -var-file=../../tfvars-inputs/${{ github.event.inputs.tfvars_root }}/${{ github.event.inputs.environment }}/terraform.tfvars -out=tfplan
+        run: terraform plan -var-file="$TFVARS_FILE" -out=tfplan
 
       - name: Upload Plan Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tfplan-s3-${{ github.event.inputs.environment }}
-          path: services/s3/tfplan
+          name: tfplan-${{ github.event.inputs.service }}-${{ github.event.inputs.environment }}
+          path: services/${{ github.event.inputs.service }}/tfplan
 
   apply:
     runs-on: ubuntu-latest
@@ -111,10 +125,10 @@ jobs:
     environment: ${{ github.event.inputs.environment == 'prod' && 'production' || github.event.inputs.environment }}
     defaults:
       run:
-        working-directory: services/s3
+        working-directory: services/${{ github.event.inputs.service }}
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-      TF_WORKSPACE: terraform-aws-deployment
+      TF_WORKSPACE: ${{ vars.PROJECT_NAME }}-${{ github.event.inputs.environment }}-${{ github.event.inputs.service }}
       TF_VAR_aws_region: ${{ vars.AWS_REGION }}
       TF_VAR_environment: ${{ github.event.inputs.environment }}
       TF_VAR_project_name: ${{ vars.PROJECT_NAME }}
@@ -141,10 +155,10 @@ jobs:
           cat > cloud.auto.tf <<EOF
           terraform {
             cloud {
-              organization = "nishu7500"
+              organization = "${{ vars.HCP_ORGANIZATION }}"
 
               workspaces {
-                name = "terraform-aws-deployment"
+                name = "${TF_WORKSPACE}"
               }
             }
           }
@@ -156,8 +170,8 @@ jobs:
       - name: Download Plan Artifact
         uses: actions/download-artifact@v4
         with:
-          name: tfplan-s3-${{ github.event.inputs.environment }}
-          path: services/s3
+          name: tfplan-${{ github.event.inputs.service }}-${{ github.event.inputs.environment }}
+          path: services/${{ github.event.inputs.service }}
 
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan

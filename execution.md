@@ -1,24 +1,24 @@
-# S3 Deployment Execution Guide
+# AWS Services Deployment Execution Guide
 
-This document explains how to authenticate GitHub Actions with AWS and HCP Terraform, configure repository secrets and variables, and run the S3 deployment workflow end to end.
+This document explains how to authenticate GitHub Actions with AWS and HCP Terraform, configure repository secrets and variables, and run service-specific deployment workflows end to end.
 
 ## 1. Prerequisites
 
 Before running the workflow, make sure you have:
 
-- The Terraform repository with the reusable S3 module and service layer.
+- The Terraform repository with reusable modules and service layers (`s3`, `vpc`, `subnet`, `security-group`, `ec2`, `alb`, `public-ip`).
 - A separate repository containing environment-specific `terraform.tfvars` files.
-- An AWS account where the S3 bucket will be created.
+- An AWS account where the selected service resources will be created.
 - An HCP Terraform organization and workspaces.
 - Access to configure GitHub repository secrets, variables, and environments.
 
 ## 2. Files Used in This Repository
 
 - Workflow: `.github/workflows/s3-deploy.yml`
-- Service layer: `services/s3/main.tf`
-- Service variables: `services/s3/variables.tf`
-- Reusable module: `modules/s3/main.tf`
-- Module variables: `modules/s3/variables.tf`
+- Service layers: `services/<service>/main.tf`
+- Service variables: `services/<service>/variables.tf`
+- Reusable modules: `modules/<service>/main.tf`
+- Module variables: `modules/<service>/variables.tf`
 
 ## 3. Separate Input Repository Structure
 
@@ -27,25 +27,37 @@ Your separate inputs repository should look like this:
 ```text
 project-a-infra-inputs/
 ├── dev/
-│   └── terraform.tfvars
+│   ├── s3/
+│   │   └── terraform.tfvars
+│   ├── vpc/
+│   │   └── terraform.tfvars
+│   └── ...
 ├── test/
-│   └── terraform.tfvars
+│   ├── s3/
+│   │   └── terraform.tfvars
+│   ├── vpc/
+│   │   └── terraform.tfvars
+│   └── ...
 └── prod/
-    └── terraform.tfvars
+  ├── s3/
+  │   └── terraform.tfvars
+  ├── vpc/
+  │   └── terraform.tfvars
+  └── ...
 ```
 
 The workflow reads tfvars from this path pattern:
 
 ```text
-<tfvars_root>/<environment>/terraform.tfvars
+<tfvars_root>/<environment>/<service>/terraform.tfvars
 ```
 
 Example:
 
 ```text
-./dev/terraform.tfvars
-./test/terraform.tfvars
-./prod/terraform.tfvars
+./dev/s3/terraform.tfvars
+./test/ec2/terraform.tfvars
+./prod/alb/terraform.tfvars
 ```
 
 ## 4. GitHub Secrets and Variables
@@ -107,21 +119,31 @@ Add these under GitHub repository Settings > Secrets and variables > Actions > V
 
 These are selected when manually running the workflow:
 
-1. `environment`
+1. `service`
+- Choices:
+  - `s3`
+  - `vpc`
+  - `subnet`
+  - `security-group`
+  - `ec2`
+  - `alb`
+  - `public-ip`
+
+2. `environment`
 - Choices:
   - `dev`
   - `test`
   - `prod`
 
-2. `tfvars_repository`
+3. `tfvars_repository`
 - Example:
   - `nishu-kumar7500/project-1`
 
-3. `tfvars_ref`
+4. `tfvars_ref`
 - Example:
   - `main`
 
-4. `tfvars_root`
+5. `tfvars_root`
 - Example:
   - `.`
 
@@ -131,7 +153,7 @@ These lines appear in the workflow:
 
 ```yaml
 TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-TF_WORKSPACE: ${{ vars.PROJECT_NAME }}-${{ github.event.inputs.environment }}-s3
+TF_WORKSPACE: ${{ vars.PROJECT_NAME }}-${{ github.event.inputs.environment }}-${{ github.event.inputs.service }}
 TF_VAR_aws_region: ${{ vars.AWS_REGION }}
 TF_VAR_environment: ${{ github.event.inputs.environment }}
 TF_VAR_project_name: ${{ vars.PROJECT_NAME }}
@@ -149,8 +171,8 @@ Meaning:
 - Computed workspace name.
 - Example:
   - `project-a-dev-s3`
-  - `project-a-test-s3`
-  - `project-a-prod-s3`
+  - `project-a-dev-vpc`
+  - `project-a-prod-ec2`
 
 3. `TF_VAR_aws_region`
 - Passes value to Terraform variable `aws_region`.
@@ -499,7 +521,7 @@ Also verify:
 - Verify the path matches:
 
 ```text
-<tfvars_root>/<environment>/terraform.tfvars
+<tfvars_root>/<environment>/<service>/terraform.tfvars
 ```
 
 2. `AWS_DEPLOY_ROLE_ARN` missing

@@ -1,25 +1,30 @@
-# Terraform S3 Framework (Production-Ready)
+# Terraform AWS Services Framework (Production-Ready)
 
-This repository implements only S3 infrastructure using a reusable module and a service orchestration layer.
+This repository implements multiple AWS infrastructure services using reusable modules and thin service orchestration layers.
 
 ## Repository Structure
 
 ```text
 TF/
 ├── modules/
-│   └── s3/
-│       ├── main.tf
-│       ├── variables.tf
-│       ├── outputs.tf
-│       ├── versions.tf
-│       └── README.md
+│   ├── s3/
+│   ├── vpc/
+│   ├── subnet/
+│   ├── security-group/
+│   ├── ec2/
+│   ├── alb/
+│   └── public-ip/
 ├── services/
-│   └── s3/
-│       ├── main.tf
-│       ├── variables.tf
-│       └── outputs.tf
+│   ├── s3/
+│   ├── vpc/
+│   ├── subnet/
+│   ├── security-group/
+│   ├── ec2/
+│   ├── alb/
+│   └── public-ip/
 ├── .github/
 │   └── workflows/
+│       ├── s3-destroy.yml
 │       └── s3-deploy.yml
 ├── .gitignore
 └── README.md
@@ -27,9 +32,19 @@ TF/
 
 ## Architecture
 
-- `modules/s3` contains all resource configuration.
-- `services/s3` calls the module and contains no direct resource blocks.
+- `modules/*` contains reusable resource definitions.
+- `services/*` calls modules and contains no direct resource blocks.
 - Environment-specific input values live in a separate repository.
+
+Supported services:
+
+- `s3`
+- `vpc`
+- `subnet`
+- `security-group`
+- `ec2`
+- `alb`
+- `public-ip`
 
 ## Separate Environment Repository
 
@@ -38,11 +53,23 @@ Store environment values in another repo, for example:
 ```text
 project-a-infra/
 ├── dev/
-│   └── terraform.tfvars
+│   ├── s3/
+│   │   └── terraform.tfvars
+│   ├── vpc/
+│   │   └── terraform.tfvars
+│   └── ...
 ├── test/
-│   └── terraform.tfvars
+│   ├── s3/
+│   │   └── terraform.tfvars
+│   ├── vpc/
+│   │   └── terraform.tfvars
+│   └── ...
 └── prod/
-    └── terraform.tfvars
+  ├── s3/
+  │   └── terraform.tfvars
+  ├── vpc/
+  │   └── terraform.tfvars
+  └── ...
 ```
 
 This Terraform repository must not contain environment-specific values.
@@ -53,13 +80,14 @@ Workflow: `.github/workflows/s3-deploy.yml`
 
 1. Checkout this reusable Terraform repository.
 2. Checkout the input-values repository.
-3. Resolve environment tfvars path.
+3. Resolve the selected service path and the matching tfvars file at `<tfvars_root>/<environment>/<service>/terraform.tfvars`.
 4. Run `terraform fmt`.
-5. Run `terraform init` with HCP backend config.
-6. Run `terraform validate`.
-7. Run `terraform plan` with environment tfvars.
-8. Run `terraform apply`.
-9. Production approval is handled by GitHub Environment protection (`production`).
+5. Generate HCP backend config using organization and service-specific workspace.
+6. Run `terraform init` with HCP backend config.
+7. Run `terraform validate`.
+8. Run `terraform plan` with the selected service tfvars.
+9. Run `terraform apply`.
+10. Production approval is handled by GitHub Environment protection (`production`).
 
 ## HCP Terraform Setup (Step by Step)
 
@@ -68,16 +96,21 @@ Workflow: `.github/workflows/s3-deploy.yml`
 - Create organization, for example `acme-platform`.
 
 2. Create workspaces
-- Create one workspace per environment-resource.
-- Naming pattern: `<project>-<env>-s3`
+- Create one workspace per environment-service.
+- Naming pattern: `<project>-<env>-<service>`
 - Examples:
   - `project-a-dev-s3`
-  - `project-a-test-s3`
-  - `project-a-prod-s3`
+  - `project-a-dev-vpc`
+  - `project-a-dev-subnet`
+  - `project-a-dev-security-group`
+  - `project-a-dev-ec2`
+  - `project-a-dev-alb`
+  - `project-a-dev-public-ip`
 
-3. Configure backend in code
-- `services/s3/main.tf` includes:
-  - `terraform { backend "remote" {} }`
+3. Configure backend in workflow
+- The workflow generates `cloud.auto.tf` at runtime with:
+  - `organization = <HCP_ORGANIZATION>`
+  - `workspaces { name = <PROJECT_NAME-environment-service> }`
 
 4. Configure backend at runtime (init)
 - `terraform init -backend-config="organization=<org>" -backend-config="workspaces.name=<workspace>"`
@@ -93,7 +126,8 @@ Workflow: `.github/workflows/s3-deploy.yml`
 
 7. Manage separate workspaces
 - Use workflow input `environment` to target `dev`, `test`, or `prod`.
-- Workspace name is generated in workflow as `${PROJECT_NAME}-${environment}-s3`.
+- Use workflow input `service` to target a stack such as `s3`, `vpc`, or `ec2`.
+- Workspace name is generated in workflow as `${PROJECT_NAME}-${environment}-${service}`.
 
 ## Required GitHub Secrets and Variables
 
@@ -114,11 +148,14 @@ Variables:
 
 ## Service Usage Example
 
-`services/s3` automatically calls `modules/s3`. Deployment uses the environment tfvars file from the separate repo:
+Each service directory under `services/` calls its matching module under `modules/`.
 
-- `dev/terraform.tfvars`
-- `test/terraform.tfvars`
-- `prod/terraform.tfvars`
+You select the `service` input in workflow dispatch, and deployment uses the matching environment and service tfvars file from the separate repo:
+
+- `dev/s3/terraform.tfvars`
+- `dev/vpc/terraform.tfvars`
+- `test/ec2/terraform.tfvars`
+- `prod/alb/terraform.tfvars`
 
 ## Example tfvars (in separate repo)
 
@@ -161,5 +198,5 @@ tags = {
 - Pin Terraform and provider versions.
 - Keep module reusable and input-driven.
 - Keep service layer thin and orchestration-only.
-- Use one workspace per environment-resource.
+- Use one workspace per environment-service.
 - Promote changes via pull requests and environment approvals.
