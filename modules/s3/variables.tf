@@ -132,7 +132,7 @@ variable "object_lock_mode" {
   default     = null
 
   validation {
-    condition     = contains(["", "GOVERNANCE", "COMPLIANCE"], coalesce(var.object_lock_mode, ""))
+    condition     = var.object_lock_mode != null ? contains(["GOVERNANCE", "COMPLIANCE"], var.object_lock_mode) : true
     error_message = "object_lock_mode must be GOVERNANCE, COMPLIANCE, or null."
   }
 }
