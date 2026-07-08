@@ -78,16 +78,20 @@ jobs:
 
       - name: Create backend config
         run: |
-          cat > backend.hcl <<EOF
-          organization = "nishu7500"
+          cat > cloud.auto.tf <<EOF
+          terraform {
+            cloud {
+              organization = "nishu7500"
 
-          workspaces {
-            name = "${{ env.TF_WORKSPACE }}"
+              workspaces {
+                name = "${{ env.TF_WORKSPACE }}"
+              }
+            }
           }
           EOF
 
       - name: Terraform Init
-        run: terraform init -backend-config=backend.hcl
+        run: terraform init
 
       - name: Terraform Validate
         run: terraform validate
@@ -134,16 +138,20 @@ jobs:
 
       - name: Create backend config
         run: |
-          cat > backend.hcl <<EOF
-          organization = "nishu7500"
+          cat > cloud.auto.tf <<EOF
+          terraform {
+            cloud {
+              organization = "nishu7500"
 
-          workspaces {
-            name = "${{ env.TF_WORKSPACE }}"
+              workspaces {
+                name = "${{ env.TF_WORKSPACE }}"
+              }
+            }
           }
           EOF
 
       - name: Terraform Init
-        run: terraform init -backend-config=backend.hcl
+        run: terraform init
 
       - name: Download Plan Artifact
         uses: actions/download-artifact@v4
