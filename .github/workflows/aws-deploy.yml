@@ -46,7 +46,8 @@ permissions:
 
 jobs:
   plan:
-    runs-on: terraform-runner #ubuntu-latest
+    runs-on: #ubuntu-latest
+      - self-hosted
     environment: ${{ github.event.inputs.environment == 'prod' && 'production' || github.event.inputs.environment }}
     defaults:
       run:
