@@ -14,7 +14,8 @@ Before running the workflow, make sure you have:
 
 ## 2. Files Used in This Repository
 
-- Workflow: `.github/workflows/s3-deploy.yml`
+- Deploy workflow: `.github/workflows/aws-deploy.yml`
+- Destroy workflow: `.github/workflows/aws-destroy.yml`
 - Service layers: `services/<service>/main.tf`
 - Service variables: `services/<service>/variables.tf`
 - Reusable modules: `modules/<service>/main.tf`

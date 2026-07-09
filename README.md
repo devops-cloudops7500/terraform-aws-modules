@@ -24,8 +24,8 @@ TF/
 │   └── public-ip/
 ├── .github/
 │   └── workflows/
-│       ├── s3-destroy.yml
-│       └── s3-deploy.yml
+│       ├── aws-destroy.yml
+│       └── aws-deploy.yml
 ├── .gitignore
 └── README.md
 ```
@@ -76,7 +76,9 @@ This Terraform repository must not contain environment-specific values.
 
 ## GitHub Actions Deployment Flow
 
-Workflow: `.github/workflows/s3-deploy.yml`
+Workflow (Deploy): `.github/workflows/aws-deploy.yml`
+
+Workflow (Destroy): `.github/workflows/aws-destroy.yml`
 
 1. Checkout this reusable Terraform repository.
 2. Checkout the input-values repository.
