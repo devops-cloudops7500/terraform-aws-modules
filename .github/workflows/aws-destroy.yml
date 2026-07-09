@@ -51,7 +51,7 @@ permissions:
 
 jobs:
   plan-destroy:
-    runs-on: ubuntu-latest
+    runs-on: terraform-runner #ubuntu-latest
     environment: ${{ github.event.inputs.environment == 'prod' && 'production' || github.event.inputs.environment }}
     defaults:
       run:
