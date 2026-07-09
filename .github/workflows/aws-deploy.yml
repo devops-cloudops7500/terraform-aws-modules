@@ -168,6 +168,7 @@ jobs:
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
       TF_WORKSPACE: ${{ vars.PROJECT_NAME }}-${{ github.event.inputs.environment }}-${{ github.event.inputs.service }}
+      TFVARS_FILE: ../../tfvars-inputs/${{ github.event.inputs.tfvars_root }}/${{ github.event.inputs.environment }}/${{ github.event.inputs.service }}/terraform.tfvars
       TF_VAR_aws_region: ${{ vars.AWS_REGION }}
       TF_VAR_environment: ${{ github.event.inputs.environment }}
       TF_VAR_project_name: ${{ vars.PROJECT_NAME }}
@@ -177,6 +178,17 @@ jobs:
     steps:
       - name: Checkout Terraform repository
         uses: actions/checkout@v4
+
+      - name: Checkout inputs repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.inputs.tfvars_repository }}
+          ref: ${{ github.event.inputs.tfvars_ref }}
+          token: ${{ github.token }}
+          path: tfvars-inputs
+
+      - name: Verify inputs file
+        run: test -f "$TFVARS_FILE"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -247,9 +259,21 @@ jobs:
 
       - name: Download Plan Artifact
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: tfplan-${{ github.event.inputs.service }}-${{ github.event.inputs.environment }}
           path: services/${{ github.event.inputs.service }}
+
+      - name: Ensure plan file exists
+        run: |
+          set -euo pipefail
+
+          if [ -f tfplan ]; then
+            exit 0
+          fi
+
+          echo "Plan artifact was not available. Regenerating tfplan locally."
+          terraform plan -var-file="$TFVARS_FILE" -out=tfplan
 
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
