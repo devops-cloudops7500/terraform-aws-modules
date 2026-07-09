@@ -152,7 +152,16 @@ jobs:
         run: terraform validate
 
       - name: Terraform Destroy Plan
-        run: terraform plan -destroy -var="force_destroy=true" -var-file="$TFVARS_FILE" -out=tfdestroyplan
+        run: |
+          set -euo pipefail
+
+          DESTROY_VARS=()
+
+          if [ "${{ github.event.inputs.service }}" = "s3" ]; then
+            DESTROY_VARS+=("-var=force_destroy=true")
+          fi
+
+          terraform plan -destroy "${DESTROY_VARS[@]}" -var-file="$TFVARS_FILE" -out=tfdestroyplan
 
       - name: Upload Destroy Plan Artifact
         uses: actions/upload-artifact@v4
