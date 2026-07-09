@@ -92,6 +92,64 @@ jobs:
         with:
           terraform_version: 1.9.8
 
+      - name: Ensure HCP Terraform workspace exists
+        env:
+          HCP_ORGANIZATION: ${{ vars.HCP_ORGANIZATION }}
+        run: |
+          set -euo pipefail
+
+          API_URL="https://app.terraform.io/api/v2"
+          WORKSPACE_URL="${API_URL}/organizations/${HCP_ORGANIZATION}/workspaces/${TF_WORKSPACE}"
+
+          STATUS_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${TF_TOKEN_app_terraform_io}" \
+            -H "Content-Type: application/vnd.api+json" \
+            "${WORKSPACE_URL}")
+
+          if [ "${STATUS_CODE}" = "200" ]; then
+            echo "HCP Terraform workspace ${TF_WORKSPACE} already exists. Ensuring execution mode is local."
+
+            curl -sS -X PATCH \
+              -H "Authorization: Bearer ${TF_TOKEN_app_terraform_io}" \
+              -H "Content-Type: application/vnd.api+json" \
+              "${WORKSPACE_URL}" \
+              --data @- <<EOF
+            {
+              "data": {
+                "type": "workspaces",
+                "attributes": {
+                  "execution-mode": "local"
+                }
+              }
+            }
+            EOF
+
+            exit 0
+          fi
+
+          if [ "${STATUS_CODE}" != "404" ]; then
+            echo "Failed to query workspace ${TF_WORKSPACE}. HTTP status: ${STATUS_CODE}"
+            exit 1
+          fi
+
+          echo "Creating HCP Terraform workspace ${TF_WORKSPACE} in organization ${HCP_ORGANIZATION}."
+
+          curl -sS -X POST \
+            -H "Authorization: Bearer ${TF_TOKEN_app_terraform_io}" \
+            -H "Content-Type: application/vnd.api+json" \
+            "${API_URL}/organizations/${HCP_ORGANIZATION}/workspaces" \
+            --data @- <<EOF
+          {
+            "data": {
+              "type": "workspaces",
+              "attributes": {
+                "name": "${TF_WORKSPACE}",
+                "execution-mode": "local"
+              }
+            }
+          }
+          EOF
+
       - name: Create cloud config
         run: |
           cat > cloud.auto.tf <<EOF
@@ -195,6 +253,64 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.8
+
+      - name: Ensure HCP Terraform workspace exists
+        env:
+          HCP_ORGANIZATION: ${{ vars.HCP_ORGANIZATION }}
+        run: |
+          set -euo pipefail
+
+          API_URL="https://app.terraform.io/api/v2"
+          WORKSPACE_URL="${API_URL}/organizations/${HCP_ORGANIZATION}/workspaces/${TF_WORKSPACE}"
+
+          STATUS_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${TF_TOKEN_app_terraform_io}" \
+            -H "Content-Type: application/vnd.api+json" \
+            "${WORKSPACE_URL}")
+
+          if [ "${STATUS_CODE}" = "200" ]; then
+            echo "HCP Terraform workspace ${TF_WORKSPACE} already exists. Ensuring execution mode is local."
+
+            curl -sS -X PATCH \
+              -H "Authorization: Bearer ${TF_TOKEN_app_terraform_io}" \
+              -H "Content-Type: application/vnd.api+json" \
+              "${WORKSPACE_URL}" \
+              --data @- <<EOF
+            {
+              "data": {
+                "type": "workspaces",
+                "attributes": {
+                  "execution-mode": "local"
+                }
+              }
+            }
+            EOF
+
+            exit 0
+          fi
+
+          if [ "${STATUS_CODE}" != "404" ]; then
+            echo "Failed to query workspace ${TF_WORKSPACE}. HTTP status: ${STATUS_CODE}"
+            exit 1
+          fi
+
+          echo "Creating HCP Terraform workspace ${TF_WORKSPACE} in organization ${HCP_ORGANIZATION}."
+
+          curl -sS -X POST \
+            -H "Authorization: Bearer ${TF_TOKEN_app_terraform_io}" \
+            -H "Content-Type: application/vnd.api+json" \
+            "${API_URL}/organizations/${HCP_ORGANIZATION}/workspaces" \
+            --data @- <<EOF
+          {
+            "data": {
+              "type": "workspaces",
+              "attributes": {
+                "name": "${TF_WORKSPACE}",
+                "execution-mode": "local"
+              }
+            }
+          }
+          EOF
 
       - name: Create cloud config
         run: |

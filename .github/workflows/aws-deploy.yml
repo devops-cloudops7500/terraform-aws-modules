@@ -105,7 +105,23 @@ jobs:
             "${WORKSPACE_URL}")
 
           if [ "${STATUS_CODE}" = "200" ]; then
-            echo "HCP Terraform workspace ${TF_WORKSPACE} already exists."
+            echo "HCP Terraform workspace ${TF_WORKSPACE} already exists. Ensuring execution mode is local."
+
+            curl -sS -X PATCH \
+              -H "Authorization: Bearer ${TF_TOKEN_app_terraform_io}" \
+              -H "Content-Type: application/vnd.api+json" \
+              "${WORKSPACE_URL}" \
+              --data @- <<EOF
+            {
+              "data": {
+                "type": "workspaces",
+                "attributes": {
+                  "execution-mode": "local"
+                }
+              }
+            }
+            EOF
+
             exit 0
           fi
 
@@ -125,7 +141,8 @@ jobs:
             "data": {
               "type": "workspaces",
               "attributes": {
-                "name": "${TF_WORKSPACE}"
+                "name": "${TF_WORKSPACE}",
+                "execution-mode": "local"
               }
             }
           }
@@ -206,7 +223,23 @@ jobs:
             "${WORKSPACE_URL}")
 
           if [ "${STATUS_CODE}" = "200" ]; then
-            echo "HCP Terraform workspace ${TF_WORKSPACE} already exists."
+            echo "HCP Terraform workspace ${TF_WORKSPACE} already exists. Ensuring execution mode is local."
+
+            curl -sS -X PATCH \
+              -H "Authorization: Bearer ${TF_TOKEN_app_terraform_io}" \
+              -H "Content-Type: application/vnd.api+json" \
+              "${WORKSPACE_URL}" \
+              --data @- <<EOF
+            {
+              "data": {
+                "type": "workspaces",
+                "attributes": {
+                  "execution-mode": "local"
+                }
+              }
+            }
+            EOF
+
             exit 0
           fi
 
@@ -226,7 +259,8 @@ jobs:
             "data": {
               "type": "workspaces",
               "attributes": {
-                "name": "${TF_WORKSPACE}"
+                "name": "${TF_WORKSPACE}",
+                "execution-mode": "local"
               }
             }
           }
