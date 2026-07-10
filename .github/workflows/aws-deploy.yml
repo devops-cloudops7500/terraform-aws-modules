@@ -260,7 +260,27 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
+      - name: Check if plan artifact exists
+        id: plan_artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          ARTIFACT_NAME="tfplan-${{ github.event.inputs.service }}-${{ github.event.inputs.environment }}"
+          API_URL="https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts?per_page=100"
+
+          if curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${API_URL}" | grep -Eq "\"name\"[[:space:]]*:[[:space:]]*\"${ARTIFACT_NAME}\""; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Download Plan Artifact
+        if: steps.plan_artifact.outputs.exists == 'true'
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
